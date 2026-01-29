@@ -266,10 +266,43 @@ def save_jsonl(messages: List[Message], filepath: Path):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="LLM Context Optimizer - Manage context windows intelligently",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+    # Check if first arg is a subcommand
+    if len(sys.argv) > 1 and sys.argv[1] in ['analyze', 'extract-facts']:
+        # Subcommand mode
+        parser = argparse.ArgumentParser(
+            description="LLM Context Optimizer - Manage context windows intelligently"
+        )
+        
+        subparsers = parser.add_subparsers(dest='command', help='Commands', required=True)
+        
+        # Analyze command
+        analyze_parser = subparsers.add_parser('analyze', help='Show conversation statistics')
+        analyze_parser.add_argument('input', type=str, help='Input JSONL file')
+        
+        # Extract facts command
+        facts_parser = subparsers.add_parser('extract-facts', help='Extract key facts')
+        facts_parser.add_argument('input', type=str, help='Input JSONL file')
+        
+        args = parser.parse_args()
+        
+        # Handle subcommands
+        if args.command == 'analyze':
+            messages = load_jsonl(Path(args.input))
+            stats = analyze_conversation(messages)
+            print(json.dumps(stats, indent=2))
+            return
+        
+        if args.command == 'extract-facts':
+            messages = load_jsonl(Path(args.input))
+            facts = extract_facts(messages)
+            print(json.dumps(facts, indent=2))
+            return
+    else:
+        # Default optimize mode
+        parser = argparse.ArgumentParser(
+            description="LLM Context Optimizer - Manage context windows intelligently",
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            epilog="""
 Examples:
   # Optimize a conversation to 50k tokens
   %(prog)s conversation.jsonl --target 50000 --output optimized.jsonl
@@ -282,42 +315,19 @@ Examples:
   
   # Optimize with custom settings
   %(prog)s conversation.jsonl --target 30000 --preserve-recent 20 --min-priority 6.0
-        """
-    )
-    
-    parser.add_argument('input', type=str, help='Input JSONL file')
-    parser.add_argument('--target', type=int, default=50000,
-                        help='Target token count (default: 50000)')
-    parser.add_argument('--output', type=str, help='Output JSONL file (default: stdout)')
-    parser.add_argument('--preserve-recent', type=int, default=10,
-                        help='Number of recent messages to preserve (default: 10)')
-    parser.add_argument('--min-priority', type=float, default=5.0,
-                        help='Minimum priority threshold (default: 5.0)')
-    
-    subparsers = parser.add_subparsers(dest='command', help='Commands')
-    
-    # Analyze command
-    analyze_parser = subparsers.add_parser('analyze', help='Show conversation statistics')
-    analyze_parser.add_argument('input', type=str, help='Input JSONL file')
-    
-    # Extract facts command
-    facts_parser = subparsers.add_parser('extract-facts', help='Extract key facts')
-    facts_parser.add_argument('input', type=str, help='Input JSONL file')
-    
-    args = parser.parse_args()
-    
-    # Handle subcommands
-    if args.command == 'analyze':
-        messages = load_jsonl(Path(args.input))
-        stats = analyze_conversation(messages)
-        print(json.dumps(stats, indent=2))
-        return
-    
-    if args.command == 'extract-facts':
-        messages = load_jsonl(Path(args.input))
-        facts = extract_facts(messages)
-        print(json.dumps(facts, indent=2))
-        return
+            """
+        )
+        
+        parser.add_argument('input', type=str, help='Input JSONL file')
+        parser.add_argument('--target', type=int, default=50000,
+                            help='Target token count (default: 50000)')
+        parser.add_argument('--output', type=str, help='Output JSONL file (default: stdout)')
+        parser.add_argument('--preserve-recent', type=int, default=10,
+                            help='Number of recent messages to preserve (default: 10)')
+        parser.add_argument('--min-priority', type=float, default=5.0,
+                            help='Minimum priority threshold (default: 5.0)')
+        
+        args = parser.parse_args()
     
     # Main optimization flow
     try:
